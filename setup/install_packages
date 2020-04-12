@@ -1,6 +1,6 @@
 #!/bin/sh
 
-set -Eeuo pipefail
+set -uo pipefail
 
 if (( $EUID != 0 )); then
     echo "Should be run as root"
@@ -13,6 +13,15 @@ setuppacman=${setuppacman:-N}
 
 if [[ $setuppacman =~ [yY] ]]; then
   source "./setup_pacman"
+fi
+
+echo ":: Checking if dialog is installed"
+pacman -Q dialog &> /dev/null
+if [ $? = 1 ]; then
+  echo ":: Installing dialog"
+  pacman -Syu dialog
+else
+  echo ":: Success: dialog is installed"
 fi
 
 DEFAULT_STATE="on"
