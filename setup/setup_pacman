@@ -1,10 +1,28 @@
 #!/bin/sh
 
-set -Eeuo pipefail
+set -uo pipefail
 
 if (( $EUID != 0 )); then
     echo "Should be run as root"
     exit 1
+fi
+
+# Enable wget?
+read -p ":: Enable wget? [Y/n] " enablewget
+enablewget=${enablewget:-Y}
+
+if [[ $enablewget =~ [yY] ]]; then
+  echo ":: Checking if wget is installed"
+  pacman -Q wget &> /dev/null
+  if [ $? = 1 ]; then
+    echo ":: Installing wget"
+    pacman -Syu wget 
+  else
+    echo ":: Success: wget is installed"
+  fi
+
+  echo "Enabling wget"
+  sed -i '/XferCommand \= \/usr\/bin\/wget/s/^#//g' /etc/pacman.conf
 fi
 
 # Enable multilib?
@@ -21,13 +39,4 @@ if [[ $enablemultilib =~ [yY] ]]; then
 Include = /etc/pacman.d/mirrorlist
 EOF
   fi
-fi
-
-# Enable wget?
-read -p ":: Enable wget? [Y/n] " enablewget
-enablewget=${enablewget:-Y}
-
-if [[ $enablewget =~ [yY] ]]; then
-  echo "Enabling wget"
-  sed -i '/XferCommand \= \/usr\/bin\/wget/s/^#//g' /etc/pacman.conf
 fi
