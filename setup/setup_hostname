@@ -1,0 +1,21 @@
+#!/bin/sh
+
+set -Eeo pipefail
+
+if (( $EUID != 0 )); then
+    echo "Should be run as root"
+    exit 1
+fi
+
+if [ -z "$1" ]
+  then
+    echo "Usage: $(basename $0) hostname"
+fi
+
+echo $1 > /etc/hostname
+
+cat >> /etc/hosts <<EOF
+127.0.0.1   localhost
+::1         localhost
+127.0.1.1   $1.localdomain   $1
+EOF

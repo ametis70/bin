@@ -1,0 +1,11 @@
+#!/bin/sh
+
+set -Eeuo pipefail
+
+if (( $EUID != 0 )); then
+    echo "Should be run as root"
+    exit 1
+fi
+
+useradd -m -G wheel -s '/usr/bin/zsh' ianmethyst
+sed -i '/^# %wheel ALL=(ALL) ALL/s/^# //g' /etc/sudoers

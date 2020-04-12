@@ -1,0 +1,12 @@
+#!/bin/sh
+
+set -Eeuo pipefail
+
+if (( $EUID != 0 )); then
+    echo "Should be run as root"
+    exit 1
+fi
+
+sed -i '/^#en_US.UTF-8 UTF-8/s/^#//g' /etc/locale.gen
+locale-gen
+echo "LANG=en_US.UTF-8" > /etc/locale.conf
