@@ -1,0 +1,43 @@
+#!/bin/sh
+
+set -Eeuo pipefail
+
+if (( $EUID != 0 )); then
+    echo "Should be run as root"
+    exit 1
+fi
+
+# Setup pacman
+read -p ":: Run setup_pacman? [y/N] " setuppacman
+setuppacman=${setuppacman:-N}
+
+if [[ $setuppacman =~ [yY] ]]; then
+  source "./setup_pacman"
+fi
+
+DEFAULT_STATE="on"
+
+files=""
+for file in $(ls packages); do
+  files="${files}${file} ${file} ${DEFAULT_STATE} "
+done
+
+answers=$(dialog --no-tags --stdout --checklist "select group of packages to install" 0 0 15 $files)
+
+if [ $? = 1 ]; then
+  printf "\n\nAborting...\n"
+  exit 1
+fi
+
+printf "\n\nSelected groups: $answers\n\n"
+
+packages=""
+
+for answer in $answers; do
+  p=$(cat ./packages/$answer)
+  packages="${packages}${p} "
+done
+
+printf "packages: $packages\n\n"
+
+sudo pacman -Syu $packages
