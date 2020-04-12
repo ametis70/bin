@@ -1,0 +1,31 @@
+#!/bin/sh
+
+set -uo pipefail
+
+# Install zplug?
+read -p ":: Install zplug? [Y/n] " zplug
+zplug=${zplug:-Y}
+
+if [[ $zplug =~ [yY] ]]; then
+  echo ":: Installing zplug"
+  curl -sL --proto-redir -all,https https://raw.githubusercontent.com/zplug/installer/master/installer.zsh | zsh
+fi
+
+# Install vim-plug?
+read -p ":: Install vim-plug? [Y/n] " vimplug 
+vimplug=${vimplug:-Y}
+
+if [[ $vimplug =~ [yY] ]]; then
+  echo ":: Installing vim-plug"
+  curl -fLo ~/.local/share/nvim/site/autoload/plug.vim --create-dirs \
+    https://raw.githubusercontent.com/junegunn/vim-plug/master/plug.vim
+fi
+
+# Install fnm?
+read -p ":: Install fnm? [Y/n] " fnm
+fnm=${fnm:-Y}
+
+if [[ $fnm =~ [yY] ]]; then
+  echo ":: Installing fnm"
+  curl -fsSL https://github.com/Schniz/fnm/raw/master/.ci/install.sh | bash
+fi
