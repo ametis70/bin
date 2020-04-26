@@ -1,0 +1,9 @@
+#!/bin/sh
+
+if (( $EUID != 0 )); then
+    echo "Should be run as root"
+    exit 1
+fi
+
+docker stop $(docker ps -a -q)
+docker rm $(docker ps -a -q)
