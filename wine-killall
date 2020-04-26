@@ -1,0 +1,11 @@
+#!/bin/sh
+
+processes=$(pgrep -fa '\.exe' | cut -d " " -f 1-3)
+
+IFS=$'\n'
+for process in $processes; do
+  pid=$(echo $process | cut -d " " -f 1)
+  full_name=$(echo $process | cut -d " " -f 2-3)
+  printf "Killing $pid -> $full_name\n"
+  kill -9 $pid 
+done
