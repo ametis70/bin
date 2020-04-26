@@ -1,0 +1,31 @@
+#!/bin/sh
+
+set -uo pipefail
+
+# NetworkManager
+pacman -Q networkmanager &> /dev/null
+if [ $? = 0 ]; then
+  echo ":: Enabling NetworkManager"
+  systemctl enable NetworkManager.service
+fi
+
+# Cups
+pacman -Q cups &> /dev/null
+if [ $? = 0 ]; then
+  echo ":: Enabling CUPS"
+  systemctl enable org.cups.cupsd.service
+fi
+
+#Avahi
+pacman -Q avahi &> /dev/null
+if [ $? = 0 ]; then
+  systemctl disable systemd-resolved.service
+  cat /etc/nsswitch.conf | grep mdns_minimal &> /dev/null
+  if [ $? = 1 ]; then 
+    sed -i \
+      '/hosts/s/resolve \[\!UNAVAIL=return\] dns/mdns_minimal \[NOTFOUND\=return\] &/' \
+      /etc/nsswitch.conf
+  fi
+  systemctl enable avahi-daemon
+fi
+
