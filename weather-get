@@ -1,0 +1,118 @@
+#!/bin/sh
+
+set -Eeuo pipefail
+
+source ./.weather-schema
+FIELD_COUNT=$(echo $SCHEMA  | grep -o ";" | wc -l)
+URL=https://ssl.smn.gob.ar/dpd/zipopendata.php?dato=tiepre
+TMPDIR=/tmp/weather
+OUT=$HOME/.weather
+CITY="La Plata"
+
+print=false
+
+help() {
+  cat <<EOF
+
+Usage: $(basename $0) [OPTION]
+
+This script will fetch a zip file from datos.gob.ar and extract the .txt that 
+holds the latest info gathered from all the weather stations in Argentina.
+After that, all lines except the one containing the city specified by the \$CITY
+variable will be removed and the data will be formated and saved in the \$OUT file
+
+More info: https://datos.gob.ar/dataset/smn-estado-tiempo-presente
+
+Default \$CITY selected: $CITY
+Default \$OUT file: $OUT
+
+Options:
+  -c       Set the \$CITY variable
+  -C       Cleanup tmp directory
+  -o       Set the \$OUT file
+  -p       Print the output instead of saving it
+  -h       Print this message
+EOF
+}
+
+cleanup() {
+  if [ -d $TMPDIR ]; then
+    rm -rf $TMPDIR/*
+  fi
+}
+
+# Parse args
+while getopts "hCpc:" opt; do
+  case $opt in 
+    h)
+      help 
+      exit 0
+      ;;
+    C)
+      cleanup
+      exit 0
+      ;;
+    c)
+      CITY=$OPTARG
+      ;;
+    o)
+      OUT=$OPTARG
+      ;;
+    p) 
+      print=true
+      ;;
+    \?)
+      echo "" >&2
+      help
+      exit 1
+      ;;
+  esac
+done
+
+# Create dir if not exists
+if [ ! -d /tmp/weather ]; then
+  mkdir -p $TMPDIR
+fi
+
+# Get the dataset
+curl -s "$URL" --output $TMPDIR/weather.zip 
+unzip -q $TMPDIR/weather.zip -d $TMPDIR 
+
+# Sanitize
+iconv -f latin1 -t utf8 $TMPDIR/*.txt | tr -d '' > $TMPDIR/final.txt
+
+# Cut city data
+data=$(cat $TMPDIR/final.txt | grep -i "$CITY" || echo "notfound")
+
+if [ "$data" = "notfound" ]; then
+  echo "Error: City/Weather station not found"
+  cleanup
+  exit 1
+fi
+
+# Process string
+processed=""
+for (( i = 0; i <= $FIELD_COUNT; i++ )); do
+  field_number=$(($i +1))
+  field=$(echo $SCHEMA | cut -d ";" -f $field_number)
+  value=$(echo $data | cut -d ";" -f $field_number)
+
+  line="${field}=$(echo ${value/\//} | sed -e 's/^[ ]*//')"
+
+  if [ ! $i = $FIELD_COUNT ]; then
+    processed="${processed}${line}\n"
+  else 
+    processed="${processed}${line}"
+  fi
+done
+
+# Print or save?
+if [ "$print" = true ]; then
+  echo -e "$processed"
+else
+  rm $OUT
+  echo -e "$processed" >> $OUT
+fi
+
+# Cleanup
+cleanup

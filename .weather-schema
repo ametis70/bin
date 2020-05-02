@@ -1,0 +1,3 @@
+#!/bin/sh
+
+export SCHEMA="Ciudad;Fecha;Hora;Estado;Visibilidad;Temperatura;Sensacion;Humedad;Viento;Presion"
