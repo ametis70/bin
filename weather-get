@@ -2,7 +2,7 @@
 
 set -Eeuo pipefail
 
-source ./.weather-schema
+source data/weather-schema
 FIELD_COUNT=$(echo $SCHEMA  | grep -o ";" | wc -l)
 URL=https://ssl.smn.gob.ar/dpd/zipopendata.php?dato=tiepre
 TMPDIR=/tmp/weather
@@ -16,7 +16,7 @@ help() {
 
 Usage: $(basename $0) [OPTION]
 
-This script will fetch a zip file from datos.gob.ar and extract the .txt that 
+This script will fetch a zip file from datos.gob.ar and extract the .txt that
 holds the latest info gathered from all the weather stations in Argentina.
 After that, all lines except the one containing the city specified by the \$CITY
 variable will be removed and the data will be formated and saved in the \$OUT file
@@ -43,9 +43,9 @@ cleanup() {
 
 # Parse args
 while getopts "hCpc:" opt; do
-  case $opt in 
+  case $opt in
     h)
-      help 
+      help
       exit 0
       ;;
     C)
@@ -58,7 +58,7 @@ while getopts "hCpc:" opt; do
     o)
       OUT=$OPTARG
       ;;
-    p) 
+    p)
       print=true
       ;;
     \?)
@@ -75,8 +75,8 @@ if [ ! -d /tmp/weather ]; then
 fi
 
 # Get the dataset
-curl -s "$URL" --output $TMPDIR/weather.zip 
-unzip -q $TMPDIR/weather.zip -d $TMPDIR 
+curl -s "$URL" --output $TMPDIR/weather.zip
+unzip -q $TMPDIR/weather.zip -d $TMPDIR
 
 # Sanitize
 iconv -f latin1 -t utf8 $TMPDIR/*.txt | tr -d '' > $TMPDIR/final.txt
@@ -101,7 +101,7 @@ for (( i = 0; i <= $FIELD_COUNT; i++ )); do
 
   if [ ! $i = $FIELD_COUNT ]; then
     processed="${processed}${line}\n"
-  else 
+  else
     processed="${processed}${line}"
   fi
 done
@@ -110,8 +110,10 @@ done
 if [ "$print" = true ]; then
   echo -e "$processed"
 else
-  rm $OUT
-  echo -e "$processed" >> $OUT
+  if [ -f $OUT ]; then
+    rm $OUT
+  fi
+  echo -e "$processed" > $OUT
 fi
 
 # Cleanup
