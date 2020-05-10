@@ -1,0 +1,3 @@
+#!/bin/bash
+
+TWITCH_OAUTH=$(gpg -q --decrypt data/twitch-oauth.gpg) python3 twitch-notify
