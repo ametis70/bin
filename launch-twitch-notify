@@ -1,3 +1,7 @@
 #!/bin/bash
 
-TWITCH_OAUTH=$(gpg -q --decrypt data/twitch-oauth.gpg) python3 twitch-notify
+SCRIPT_PATH=$(dirname "$0")
+TOKEN_PATH="$SCRIPT_PATH/data/twitch-oauth.gpg"
+
+TWITCH_OAUTH=$(gpg -q --decrypt $TOKEN_PATH ) \
+  exec python3 "$SCRIPT_PATH/twitch-notify"
