@@ -1,0 +1,10 @@
+#!/bin/sh
+
+set -Eeuo pipefail
+
+if (( $EUID != 0 )); then
+    echo "Should be run as root"
+    exit 1
+fi
+
+systemctl enable org.cups.cupsd.service 

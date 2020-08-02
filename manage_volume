@@ -1,0 +1,66 @@
+#!/bin/dash
+
+printMuted() {
+  if [ "$(pamixer --get-mute )" = "true" ]; then
+    printf " (muted)"
+  fi
+}
+
+sendNotification() {
+  notify-send "$1" \
+    -h string:x-canonical-private-synchronous:volume \
+    -u low
+  }
+
+checkSingleAction() {
+  if [ -n "$ACTION" ]; then
+    echo "More than one action specified"
+    exit 1
+  fi
+}
+
+checkEmptyValue() {
+  if [ -z "$VALUE" ]; then
+    echo "Value needed to $ACTION volume"
+    exit 1
+  fi
+}
+
+ACTION=""
+VALUE=""
+NOTIFY="false"
+PRINT="false"
+
+while getopts "s:i:d:tnp" arg; do
+  case $arg in
+    s) checkSingleAction; ACTION="set"; VALUE=$OPTARG ;;
+    i) checkSingleAction; ACTION="increase"; VALUE=$OPTARG ;;
+    d) checkSingleAction; ACTION="decrease"; VALUE=$OPTARG ;;
+    t) checkSingleAction; ACTION="toggle" ;;
+    n) NOTIFY="true" ;;
+    p) PRINT="true" ;;
+    *) echo "Invalid argument"; exit 1 ;;
+  esac
+done
+
+if test -z "$ACTION" && test "$NOTIFY" = "false" && test "$PRINT" = "false"; then
+  echo "No action specified"
+  exit 1
+fi
+
+case $ACTION in
+  set) checkEmptyValue; pamixer --set-volume "$VALUE" ;;
+  increase) checkEmptyValue; pamixer -i "$VALUE" ;;
+  decrease) checkEmptyValue; pamixer -d "$VALUE" ;;
+  toggle) pamixer -t ;;
+esac
+
+INFO="Volume: $(pamixer --get-volume)%$(printMuted)"
+
+if [ "$NOTIFY" = "true" ]; then
+  sendNotification "$INFO"
+fi
+
+if [ "$PRINT" = "true" ]; then
+  echo "$INFO"
+fi

@@ -1,0 +1,3 @@
+#!/bin/bash
+
+echo "options rtl8723be fwlps=0" > /etc/modprobe.d/rtl8723be.conf
