@@ -18,6 +18,10 @@ Options:
 EOF
 }
 
+list_projects() {
+  cat $PROJECTS_FILE
+}
+
 add_project() {
   echo "Info: adding project $NEW_PROJECT_DIR"
   # Check if project is already present
@@ -45,7 +49,7 @@ add_project() {
 }
 
 remove_project() {
-  PROJECT=$(cat $PROJECTS_FILE | fzf)
+  PROJECT=$(cat $PROJECTS_FILE | eval "$FINDER")
   if [ -z "$PROJECT" ]; then
     exit 0
   fi
@@ -68,22 +72,26 @@ remove_project() {
 }
 
 open_project() {
-  PROJECT=$(cat $PROJECTS_FILE | fzf)
+  PROJECT=$(cat $PROJECTS_FILE | eval "$FINDER")
   if [ -z "$PROJECT" ]; then
     exit 0
   fi
 
   if [ -d "$PROJECT" ]; then
-    tmux -L $(basename "$PROJECT") attach
+    PROJECT_BASENAME=$(basename $PROJECT)
+    TMUX_ARGS=""
 
+    tmux -L $PROJECT_BASENAME has-session
     if [ $? == 0 ]; then
-      exit 0
+      TMUX_ARGS="-L $PROJECT_BASENAME attach"
     else
-      OLDIR=$(pwd)
-      cd "$PROJECT"
-      tmux -L $(basename "$PROJECT")
-      cd "$OLDIR"
-      exit 0
+      TMUX_ARGS="-L $PROJECT_BASENAME new-session -c $PROJECT"
+    fi
+
+    if [ $TERM == "linux" ]; then
+      $TERMINAL -e tmux $TMUX_ARGS
+    else
+      tmux $TMUX_ARGS
     fi
   else
     read -p "Error: directory for $(basename $PROJECT) not found. Remove project? [Ny]: " REMOVE_MISSING
@@ -101,10 +109,12 @@ open_project() {
 PROJECTS_FILE="$HOME/.projects"
 OPEN="true"
 NEW_PROJECT_DIR=""
+FINDER="fzf"
 
 # Parse args
-while getopts "hra" opt; do
+while getopts "f:hral" opt; do
   case $opt in
+    f) FINDER=$OPTARG ;;
     a)
       OPEN="false"
       if [ ! -z $OPTARG ]; then
@@ -114,11 +124,19 @@ while getopts "hra" opt; do
       fi
       add_project
       ;;
-    r) OPEN="false"; remove ;;
+    r) OPEN="false"; remove_project ;;
+    l) list_projects; exit 0 ;;
     h) OPEN="false"; help; exit 0 ;;
     \?) echo "" >&2; help; exit 1 ;;
   esac
 done
+
+COMMAND=$(cut -f 1 -d " " <<< $FINDER)
+if ! command -v $COMMAND &> /dev/null
+then
+  echo "$COMMAND could not be found"
+  exit 1
+fi
 
 if [ ! -f "$PROJECTS_FILE" ]; then
   touch "$PROJECTS_FILE"

@@ -1,0 +1,3 @@
+#!/usr/bin/dash
+
+exec ~/.bin/project -f "rofi -dmenu -i -p \"project\""
