@@ -1,0 +1,137 @@
+#!/bin/bash
+
+help() {
+  cat <<EOF
+
+Usage: $(basename $0) [OPTION]
+
+Easily cd to a project directory and launch a dedicated tmux server.
+Project paths are stored in $PROJECTS_FILE.
+
+If there is at least 1 project path and this script is called without
+arguments, it will launch fzf so you can select one.
+
+Options:
+  -a [dir]   Add a new project. Defaults to current dir
+  -r         Remove project from projects. (select with fzf)
+  -h         Print this message
+EOF
+}
+
+add_project() {
+  echo "Info: adding project $NEW_PROJECT_DIR"
+  # Check if project is already present
+  cat $PROJECTS_FILE | grep $NEW_PROJECT_DIR &> /dev/null
+
+  if [ $? == 0 ]; then
+    echo "Info: project already exists"
+    exit 0
+  fi
+
+  # Check if dir exists
+  if [ ! -d $NEW_PROJECT_DIR ]; then
+    echo "Error: directory $NEW_PROJECT_DIR does not exists"
+    exit 1
+  fi
+
+  sed -i "$ a $NEW_PROJECT_DIR" "$PROJECTS_FILE"
+  if [ $? == 0 ]; then
+    echo "Info: added successfully"
+    exit 0
+  else
+    echo "Error: couldn't add $NEW_PROJECT_DIR"
+    exit 1
+  fi
+}
+
+remove_project() {
+  PROJECT=$(cat $PROJECTS_FILE | fzf)
+  if [ -z "$PROJECT" ]; then
+    exit 0
+  fi
+
+  read -p "Remove project $(basename $PROJECT)? [Ny]: " SHOULD_REMOVE
+  SHOULD_REMOVE=${SHOULD_REMOVE:-n}
+
+  if [[ $SHOULD_REMOVE =~ [yY] ]]; then
+    sed -i "\#$PROJECT#d" $PROJECTS_FILE
+      if [ $? == 0 ]; then
+        echo "Info: removed $PROJECT"
+        exit 0
+      else
+        echo "Error: couldn't remove $PROJECT"
+        exit 1
+      fi
+  fi
+
+  exit 0
+}
+
+open_project() {
+  PROJECT=$(cat $PROJECTS_FILE | fzf)
+  if [ -z "$PROJECT" ]; then
+    exit 0
+  fi
+
+  if [ -d "$PROJECT" ]; then
+    tmux -L $(basename "$PROJECT") attach
+
+    if [ $? == 0 ]; then
+      exit 0
+    else
+      OLDIR=$(pwd)
+      cd "$PROJECT"
+      tmux -L $(basename "$PROJECT")
+      cd "$OLDIR"
+      exit 0
+    fi
+  else
+    read -p "Error: directory for $(basename $PROJECT) not found. Remove project? [Ny]: " REMOVE_MISSING
+    REMOVE_MISSING=${REMOVE_MISSING:-n}
+
+    if [[ $REMOVE_MISSING =~ [yY] ]]; then
+      sed -i "\#$PROJECT#d" $PROJECTS_FILE
+        echo "Info: Removed $PROJECT"
+    fi
+
+    exit 1
+  fi
+}
+
+PROJECTS_FILE="$HOME/.projects"
+OPEN="true"
+NEW_PROJECT_DIR=""
+
+# Parse args
+while getopts "hra" opt; do
+  case $opt in
+    a)
+      OPEN="false"
+      if [ ! -z $OPTARG ]; then
+        NEW_PROJECT_DIR=$OPTARG
+      else
+        NEW_PROJECT_DIR=$(pwd)
+      fi
+      add_project
+      ;;
+    r) OPEN="false"; remove ;;
+    h) OPEN="false"; help; exit 0 ;;
+    \?) echo "" >&2; help; exit 1 ;;
+  esac
+done
+
+if [ ! -f "$PROJECTS_FILE" ]; then
+  touch "$PROJECTS_FILE"
+  echo "Info: Created projects file"
+fi
+
+if [ ! -s "$PROJECTS_FILE" ]; then
+  echo "Error: No project found. Add at least 1 project using -a first"
+  help
+  exit 1
+fi
+
+if [ $OPEN == "true" ]; then
+  open_project
+  exit 0
+fi
