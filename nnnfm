@@ -1,0 +1,9 @@
+#!/bin/sh
+
+export NNN_BMS='D:~/Documents;n:~/Nextcloud;d:~/Downloads/;s:~/Sandbox;p:~/Pictures'
+export NNN_SSHFS="sshfs -o follow_symlinks"  # make sshfs follow symlinks on the remote
+export NNN_COLORS="2136"                     # use a different color for each context
+export NNN_TRASH=1                           # trash (needs trash-cli) instead of delete
+export NNN_PLUG='p:preview-tabbed;m:nmount;c:chksum;l:launch;n:nuke;d:dragdrop'
+
+$TERMINAL --class "nnn" -e $SHELL -l -c "nnn -a $HOME"
