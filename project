@@ -14,6 +14,7 @@ arguments, it will launch fzf so you can select one.
 Options:
   -a [dir]   Add a new project. Defaults to current dir
   -r         Remove project from projects. (select with fzf)
+  -l         List projects
   -h         Print this message
 EOF
 }
@@ -38,7 +39,7 @@ add_project() {
     exit 1
   fi
 
-  sed -i "$ a $NEW_PROJECT_DIR" "$PROJECTS_FILE"
+  echo "$NEW_PROJECT_DIR" >> "$PROJECTS_FILE"
   if [ $? == 0 ]; then
     echo "Info: added successfully"
     exit 0
