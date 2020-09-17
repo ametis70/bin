@@ -1,0 +1,35 @@
+#!/bin/sh
+
+set -uo pipefail
+
+if (( $EUID == 0 )); then
+    echo "Do not run as root"
+    exit 1
+fi
+
+echo ":: Checking if yay is installed"
+pacman -Q yay &> /dev/null
+if [ $? = 1 ]; then
+  echo ":: Installing yay"
+  source "`dirname $0`/install_yay"
+else
+  echo ":: Success: yay is installed"
+fi
+
+DEFAULT_STATE="on"
+
+packages=""
+for package in $(cat "`dirname $0`/data/aur_packages"); do
+  packages="${packages}${package} ${package} ${DEFAULT_STATE} "
+done
+
+answer=$(dialog --no-tags --stdout --checklist "select packages to install" 0 0 15 $packages)
+
+if [ $? = 1 ]; then
+  printf "\n\nAborting...\n"
+  exit 1
+fi
+
+printf "\n\nSelected packaes: $answer\n\n"
+
+sudo yay -Syu $answer

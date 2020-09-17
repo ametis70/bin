@@ -2,6 +2,9 @@
 
 set -Eeuo pipefail
 
+old_dir=`pwd`
+
 git clone https://aur.archlinux.org/yay.git /tmp/yay
 cd /tmp/yay
 makepkg -si
+cd old_dir
