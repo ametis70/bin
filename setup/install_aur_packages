@@ -32,4 +32,4 @@ fi
 
 printf "\n\nSelected packaes: $answer\n\n"
 
-sudo yay -Syu $answer
+yay -Syu $answer
