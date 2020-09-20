@@ -12,8 +12,10 @@ If there is at least 1 project path and this script is called without
 arguments, it will launch fzf so you can select one.
 
 Options:
-  -a [dir]   Add a new project. Defaults to current dir
+  -A         Add current dir as a project
+  -a [dir]   Add a new project.
   -r         Remove project from projects. (select with fzf)
+  -f         Change "finder" used to select the project
   -l         List projects
   -h         Print this message
 EOF
@@ -113,18 +115,11 @@ NEW_PROJECT_DIR=""
 FINDER="fzf"
 
 # Parse args
-while getopts "f:hral" opt; do
+while getopts "f:hra:Al" opt; do
   case $opt in
-    f) FINDER=$OPTARG ;;
-    a)
-      OPEN="false"
-      if [ ! -z $OPTARG ]; then
-        NEW_PROJECT_DIR=$OPTARG
-      else
-        NEW_PROJECT_DIR=$(pwd)
-      fi
-      add_project
-      ;;
+    f) FINDER=$OPTARG;;
+    A) OPEN="false"; NEW_PROJECT_DIR=$(pwd); add_project ;;
+    a) OPEN="false"; NEW_PROJECT_DIR=$(readlink -f "$OPTARG"); add_project ;;
     r) OPEN="false"; remove_project ;;
     l) list_projects; exit 0 ;;
     h) OPEN="false"; help; exit 0 ;;
