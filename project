@@ -9,12 +9,12 @@ Easily cd to a project directory and launch a dedicated tmux server.
 Project paths are stored in $PROJECTS_FILE.
 
 If there is at least 1 project path and this script is called without
-arguments, it will launch fzf so you can select one.
+arguments, it will launch the default finder (fzf) to pick one.
 
 Options:
   -A         Add current dir as a project
   -a [dir]   Add a new project.
-  -r         Remove project from projects. (select with fzf)
+  -r         Remove project from projects. Chose with finder
   -f         Change "finder" used to select the project
   -l         List projects
   -h         Print this message
