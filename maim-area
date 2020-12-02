@@ -1,0 +1,11 @@
+#!/bin/sh
+DIR="$HOME/Pictures/screenshots/"
+DATE=$(date +%Y-%m-%d-%H-%M-%S)
+FILENAME="$DIR$DATE.png"
+
+maim -s "$FILENAME" 
+[[ $? = 1 ]] && notify-send "Screenshot cancelled" && exit 1
+
+xclip -selection clipboard -t image/png "$FILENAME"
+
+notify-send -i $FILENAME  "Saved screenshot" "$DATE.png"
