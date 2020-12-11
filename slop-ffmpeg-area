@@ -1,0 +1,34 @@
+#!/bin/bash
+
+SCREENCAST_PID_FILE="$HOME/.screencast-pid"
+
+if [ -f $SCREENCAST_PID_FILE ]; then
+        notify-send "Stopping screencast"
+	pid=$(cat $SCREENCAST_PID_FILE)
+	kill $pid
+	tail --pid=$pid -f /dev/null
+	rm $SCREENCAST_PID_FILE
+        notify-send "Screencast stopped"
+	exit 0
+fi
+
+DIR="$HOME/Videos/screencasts/"
+DATE=$(date +%Y-%m-%d-%H-%M-%S)
+FILENAME="$DIR$DATE.mp4"
+
+slop=$(slop -f "%x %y %w %h %g %i") || exit 1
+[[ $? = 1 ]] && notify-send "Screencast cancelled" && exit 1
+notify-send "Starting screencast"
+touch $HOME/.screencast-pid
+read -r X Y W H G ID < <(echo $slop)
+((ffmpeg -y -f x11grab -s "$W"x"$H" -i :0.0+$X,$Y -f pulse -i 1 $FILENAME) & jobs -p > $SCREENCAST_PID_FILE)
+
+while [ -f $SCREENCAST_PID_FILE ]; do
+	sleep 1
+done
+
+# xclip -selection clipboard -t video/mp4 "$FILENAME"
+dragon-drag-and-drop $FILENAME
+notify-send  "Saved screencast" "$DATE.mp4"
+
+
