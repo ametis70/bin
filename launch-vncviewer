@@ -1,0 +1,9 @@
+#!/bin/sh
+
+RES=${1:-"1280x720"}
+
+ssh -p 2424 -L 5900:localhost:5900 trovadorxs.net.ar "/home/ianmethyst/.bin/launch-x0vncserver $RES" &
+
+sleep 3
+
+vncviewer -RemoteResize=0 -MenuKey=Pause localhost:5900
