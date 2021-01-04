@@ -1,0 +1,36 @@
+#!/bin/sh
+
+export DISPLAY=":0"
+OUTPUT="DisplayPort-2"
+
+ORIGINAL_RES=$(xdpyinfo | grep dimensions | sed -r 's/^[^0-9]*([0-9]+x[0-9]+).*$/\1/')
+NEW_RES="${1:-$ORIGINAL_RES}"
+WM=$(wmctrl -m | head -n 1 | cut -d " " -f2)
+
+stop() {
+    if [ "$ORIGINAL_RES" != "$NEW_RES" ]; then
+        xrandr --output "$OUTPUT" --mode "$ORIGINAL_RES"
+        
+        if [ "$WM" = "i3" ]; then
+            i3-msg restart
+        fi
+    fi
+    exit 0
+}
+trap stop INT
+trap stop TERM
+
+if [ "$ORIGINAL_RES" != "$NEW_RES" ]; then
+    xrandr --output "$OUTPUT" --mode "$NEW_RES"
+    
+    if [ "$WM" = "i3" ]; then
+        i3-msg restart
+    fi
+fi
+
+x0vncserver -localhost -SecurityTypes none
+
+while :
+do
+	sleep 10
+done
