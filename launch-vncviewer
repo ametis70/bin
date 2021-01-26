@@ -1,9 +1,43 @@
-#!/bin/sh
+#!/bin/bash
+set -Eeuo pipefail
 
 RES=${1:-"1280x720"}
+LOG_FILE="/tmp/ssh-vnc-log"
 
-ssh -p 2424 -L 5900:localhost:5900 trovadorxs.net.ar "/home/ianmethyst/.bin/launch-x0vncserver $RES" &
+SCRIPT_DIR=$(dirname "$(readlink "${BASH_SOURCE[@]}")")
+cd "$(dirname "$0")"
+SSH_CONFIG="$SCRIPT_DIR/data/ssh_vnc.config"
 
-sleep 3
+# Master/Tunnel
+ssh -F "$SSH_CONFIG" -fMNT -L 5900:localhost:5900 remote &> $LOG_FILE
 
-vncviewer -RemoteResize=0 -MenuKey=Pause localhost:5900
+# Change resolution
+ORIGINAL_RES=$(ssh -F "$SSH_CONFIG" remote "/home/ianmethyst/.bin/setup-x0vncserver $RES") &> /dev/null
+
+# Start VNC server
+ssh -F "$SSH_CONFIG" -tt remote 'DISPLAY=:0 x0vncserver -localhost -SecurityTypes none' &> $LOG_FILE &
+
+close () {
+  echo 'Closing'
+
+  # Restore resolution
+  if [ "$ORIGINAL_RES" != "$RES" ]; then
+    ssh -F "$SSH_CONFIG" remote "/home/ianmethyst/.bin/setup-x0vncserver $ORIGINAL_RES" &> $LOG_FILE
+  fi
+
+  ssh -F "$SSH_CONFIG" -O exit remote &> $LOG_FILE
+  exit 0
+}
+
+trap close EXIT
+
+# Start client
+READY="1"
+while :; do
+  ssh -F "$SSH_CONFIG" remote "pgrep x0vncserver" &> /dev/null
+  READY="$?"
+  [ $READY = 0 ] && break
+  sleep 1
+done
+
+vncviewer -RemoteResize=0 -MenuKey=Pause localhost:5900 &> $LOG_FILE
