@@ -1,0 +1,178 @@
+#!/bin/bash
+set -Eeuo pipefail
+shopt -s extglob
+
+# TODO: Add help message
+# TODO: Add parameter to set $DOWNLOADS_DIR
+
+
+DOWNLOADS_DIR="$HOME/Downloads/os"
+URL="https://downloads.raspberrypi.org/os_list_imagingutility_v2.json"
+
+shopt -s expand_aliases
+alias fzf='fzf --height="10" --layout="reverse"'
+
+check_available_space() {
+    df "$DOWNLOADS_DIR" -h --output="avail" | tail -n +2
+}
+
+list_removable_devices() {
+    # see https://askubuntu.com/a/168654
+    for device in /sys/block/*; do
+        info=$(udevadm info --query=property --path="$device")
+        if grep -q ^ID_BUS=usb <<<"$info"; then
+             grep DEVNAME <<<"$info" | cut -d '=' -f2
+        fi
+    done
+}
+
+download() {
+    printf "Will download %s in %s\nDownload size: %s\nAvailable space: %s\n\n" \
+        "$1" "$DOWNLOADS_DIR" "$2" "$(check_available_space)"
+
+    read -rp "Continue? [Y/n]" continue
+    continue=${continue:-Y}
+    if [[ $continue =~ [yY] ]]; then
+         echo "Downloading..."
+         curl -o "$DOWNLOADS_DIR/$1" "$3"
+    else exit 1; fi
+}
+
+extract() {
+    printf "Will extract %s in %s\nExtracted size: %s\nAvailable space: %s\n\n" \
+        "$1" "$DOWNLOADS_DIR" "$2" "$(check_available_space)"
+
+    read -rp "Continue? [Y/n]" continue
+    continue=${continue:-Y}
+    if [[ $continue =~ [yY] ]]; then
+         echo "Extracting..."
+         unzip "$DOWNLOADS_DIR/$1" -d "$DOWNLOADS_DIR"
+         echo "Checking sha256 hashes"
+         sum=$(sha256sum "$3" | cut -f 1 -d ' ')
+         if [ "$sum" = "$4" ]; then
+              echo "Checksum matches" 
+         else
+             echo "Checksum doesn't match. Remove file and download again"
+             exit 1
+         fi
+    else exit 1; fi
+}
+
+flash() {
+    sudo dd bs=4M status=progress oflag=sync if="$1" of="$2"
+}
+
+# TODO: Improve this filter, it's a mess
+read -rd '' FILTER << EOF || true
+    (.os_list[] | select(has("url"))), (.os_list[] | select(.subitems) | .subitems[]) 
+    | select(any(.name; contains("Raspberry Pi OS")))
+    | {
+        name, url, extract_sha256, extract_size: (.extract_size / 1024 / 1024 | round), 
+        image_download_size: (.image_download_size / 1024 / 1024 | round), release_date
+      }
+EOF
+
+RAW=$(curl --no-progress-meter $URL)
+JSON=$(jq "$FILTER" <<<"$RAW")
+
+printf "Select Raspberry Pi OS Version: "
+IMAGE_SELECTION=$(echo "$JSON" | jq '.name' | fzf)
+printf "%s\n" "$IMAGE_SELECTION"
+
+IMAGE_SELECTION_CSV=$(echo "$JSON" \
+    | jq -r ". | select(.name == $IMAGE_SELECTION) | [.name, .release_date, .url, .image_download_size, .extract_size, .extract_sha256 ] | @csv" \
+    | tr -d '"')
+
+declare -a SELECTION_DATA
+IFS=',' read -ra SELECTION_DATA <<< "$IMAGE_SELECTION_CSV"
+
+ZIP_FILENAME=$(basename "${SELECTION_DATA[2]}")
+IMG_FILENAME=${ZIP_FILENAME/zip/img}
+
+should_download=FALSE
+should_extract=FALSE
+
+# NOTE: This block is a bit redundant, could be improved.
+echo "Checking for files"
+if [ -d "$DOWNLOADS_DIR" ]; then
+     if [ -f "$DOWNLOADS_DIR/$IMG_FILENAME" ]; then
+          echo "Found extracted image: $IMG_FILENAME"
+     elif [ -f "$DOWNLOADS_DIR/$ZIP_FILENAME" ]; then
+          should_extract=TRUE
+     else
+         should_download=TRUE; should_extract=TRUE
+     fi
+else
+    echo "Creading dir: $DOWNLOADS_DIR"
+    mkdir -p "$DOWNLOADS_DIR"
+    should_download=TRUE; should_extract=TRUE
+fi
+
+[ $should_download = TRUE ] && download "$ZIP_FILENAME" "${SELECTION_DATA[3]}M" "${SELECTION_DATA[2]}"
+[ $should_extract = TRUE ] && extract "$ZIP_FILENAME" "${SELECTION_DATA[4]}M" "$IMG_FILENAME"  "${SELECTION_DATA[5]}"
+
+# NOTE: Is there a cleaner way to do this?
+DEVICES=$(list_removable_devices)
+while [ -z "$DEVICES" ]; do
+    read -rp "No removable devices found. Insert one and press enter"
+    DEVICES=$(list_removable_devices)
+done
+
+DEVICE_SELECTION=$(echo "$DEVICES" | fzf)
+
+
+printf "Will flash %s (%s) to %s\n" \
+    "${SELECTION_DATA[0]}" "${SELECTION_DATA[1]}" "$DEVICE_SELECTION"
+
+read -rp "Continue? [Y/n]" confirm 
+confirm=${confirm:-Y}
+
+if [[ $confirm =~ [yY] ]]; then
+     echo "Umounting and flashing"
+     if [ -f "$DOWNLOADS_DIR/$IMG_FILENAME" ] && [ -b "$DEVICE_SELECTION" ]; then
+          for partition in "$DEVICE_SELECTION"?*; do
+              sudo umount "$partition" || true
+          done
+          flash "$DOWNLOADS_DIR/$IMG_FILENAME" "$DEVICE_SELECTION"
+     else
+         exit 1
+fi
+else
+    exit 1
+fi
+
+sudo mkdir -p /mnt/raspi-flash
+sudo mount "$DEVICE_SELECTION"1 /mnt/raspi-flash
+
+read -rp "Enable SSH? [Y/n]" enable_ssh
+enable_ssh=${enable_ssh:-Y}
+
+if [[ $enable_ssh =~ [yY] ]]; then
+     sudo touch /mnt/raspi-flash/ssh
+fi
+
+read -rp "Configure wpa_supplicant? [Y/n]" enable_wifi
+enable_wifi=${enable_wifi:-Y}
+
+if [[ $enable_wifi =~ [yY] ]]; then
+     read -rp "Network name: " ssid
+     read -rsp "Password (hidden): " psk
+     read -rp "Country (Two letters. Example: AR): " country
+     sudo rm /mnt/raspi-flash/wpa_supplicant.conf
+     sudo bash -c 'cat > /mnt/raspi-flash/wpa_supplicant.conf' <<EOF 
+country=$country
+update_config=1
+ctrl_interface=/var/run/wpa_supplicant
+
+network={
+ scan_ssid=1
+ ssid="$ssid"
+ psk="$psk"
+}
+
+EOF
+fi
+
+sudo umount "$DEVICE_SELECTION"1
+sudo rmdir /mnt/raspi-flash
+echo "Finished successfully!"
