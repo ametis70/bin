@@ -1,0 +1,9 @@
+#!/bin/sh
+
+value=$(emacsclient --eval '(progn (setq silent-buffer (generate-new-buffer "\*silent-buffer\*")) (if (org-clocking-p)(print (org-clock-get-clock-string) silent-buffer)(print -1 silent-buffer)))' | head -n1 | cut -d\" -f2)
+
+emacsclient --eval "(kill-buffer silent-buffer)" >/dev/null 2>&1 
+
+[ "$value" = "-1" ] && exit 1
+
+echo "$value"
