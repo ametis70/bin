@@ -1,0 +1,51 @@
+#!/bin/bash
+set -Eeo pipefail
+
+help() {
+    echo "Usage: $(basename $0) image mountpoint"
+}
+
+image=$1
+mountpoint=$2
+
+alias fzf='fzf --height="10" --layout="reverse"'
+device="/dev/nbd0"
+mounted=false
+
+if [ ! -f "$image" ] || [ ! -d "$mountpoint" ]; then
+    [ ! -f "$image" ] && echo "Image $1 doesn't exist"
+    [ ! -d "$mountpoint" ] && echo "Directory $2 doesn't exist"
+    help
+    exit 1
+fi
+
+sudo modprobe nbd max_part=8
+sudo qemu-nbd --connect=$device $image
+
+close() {
+    echo ""
+    if [ $mounted = "true" ]; then
+        echo ":: Umounting $selection " 
+        sudo umount $selection
+    fi
+    echo ":: Closing device $device"
+    sudo qemu-nbd --disconnect $device
+    sudo rmmod nbd
+}
+
+trap close EXIT
+
+partitions=$(sudo fdisk -l $device | sed '1,/Device*/d')
+selection=$(echo "$partitions" | fzf | cut -f 1 -d " ")
+
+echo ":: Mounting $selection in $mountpoint"
+sudo mount $selection $mountpoint
+mimeopen -n "$mountpoint" &> /dev/null &
+echo ":: Press CTRL + C to umount"
+
+mounted="true"
+
+
+while :; do
+    sleep 1
+done
