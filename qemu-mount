@@ -25,6 +25,8 @@ sudo qemu-nbd --connect=$device $image
 close() {
     echo ""
     if [ $mounted = "true" ]; then
+	echo ":: Syncing cached writes" 
+	sync
         echo ":: Umounting $selection " 
         sudo umount $selection
     fi
