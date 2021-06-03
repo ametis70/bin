@@ -5,7 +5,6 @@ shopt -s extglob
 # TODO: Add help message
 # TODO: Add parameter to set $DOWNLOADS_DIR
 
-
 DOWNLOADS_DIR="$HOME/Downloads/os"
 URL="https://downloads.raspberrypi.org/os_list_imagingutility_v2.json"
 
@@ -50,7 +49,7 @@ extract() {
          echo "Checking sha256 hashes"
          sum=$(sha256sum "$3" | cut -f 1 -d ' ')
          if [ "$sum" = "$4" ]; then
-              echo "Checksum matches" 
+              echo "Checksum matches"
          else
              echo "Checksum doesn't match. Remove file and download again"
              exit 1
@@ -62,12 +61,12 @@ flash() {
     sudo dd bs=4M status=progress oflag=sync if="$1" of="$2"
 }
 
-# TODO: Improve this filter, it's a mess
+# TODO: Improve this messy filter
 read -rd '' FILTER << EOF || true
-    (.os_list[] | select(has("url"))), (.os_list[] | select(.subitems) | .subitems[]) 
+    (.os_list[] | select(has("url"))), (.os_list[] | select(.subitems) | .subitems[])
     | select(any(.name; contains("Raspberry Pi OS")))
     | {
-        name, url, extract_sha256, extract_size: (.extract_size / 1024 / 1024 | round), 
+        name, url, extract_sha256, extract_size: (.extract_size / 1024 / 1024 | round),
         image_download_size: (.image_download_size / 1024 / 1024 | round), release_date
       }
 EOF
@@ -124,7 +123,7 @@ DEVICE_SELECTION=$(echo "$DEVICES" | fzf)
 printf "Will flash %s (%s) to %s\n" \
     "${SELECTION_DATA[0]}" "${SELECTION_DATA[1]}" "$DEVICE_SELECTION"
 
-read -rp "Continue? [Y/n]" confirm 
+read -rp "Continue? [Y/n]" confirm
 confirm=${confirm:-Y}
 
 if [[ $confirm =~ [yY] ]]; then
@@ -134,6 +133,7 @@ if [[ $confirm =~ [yY] ]]; then
               sudo umount "$partition" || true
           done
           flash "$DOWNLOADS_DIR/$IMG_FILENAME" "$DEVICE_SELECTION"
+          sync
      else
          exit 1
 fi
@@ -157,9 +157,11 @@ enable_wifi=${enable_wifi:-Y}
 if [[ $enable_wifi =~ [yY] ]]; then
      read -rp "Network name: " ssid
      read -rsp "Password (hidden): " psk
+     printf "\n"
      read -rp "Country (Two letters. Example: AR): " country
-     sudo rm /mnt/raspi-flash/wpa_supplicant.conf
-     sudo bash -c 'cat > /mnt/raspi-flash/wpa_supplicant.conf' <<EOF 
+     [ -f /mnt/raspi-flash/wpa_supplicant.conf ] && \
+       sudo rm /mnt/raspi-flash/wpa_supplicant.conf
+     sudo bash -c 'cat > /mnt/raspi-flash/wpa_supplicant.conf' <<EOF
 country=$country
 update_config=1
 ctrl_interface=/var/run/wpa_supplicant
@@ -173,6 +175,7 @@ network={
 EOF
 fi
 
-sudo umount "$DEVICE_SELECTION"1
+sudo umount "$DEVICE_SELECTION"
+
 sudo rmdir /mnt/raspi-flash
 echo "Finished successfully!"
