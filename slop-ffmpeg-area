@@ -13,17 +13,48 @@ if [ -f "$SCREENCAST_PID_FILE" ]; then
 fi
 
 DIR="$HOME/Videos/screencasts/"
+
+if [[ ! -d $DIR ]]; then
+    echo "Creating directory: $DIR"
+    mkdir -p $DIR
+    [[ $? = 1 ]] && notify-send "Couldn't create screencasts directory" && exit 1
+fi
+
 DATE=$(date +%Y-%m-%d-%H-%M-%S)
 FILENAME="$DIR$DATE.mp4"
 
-slop=$(slop -f "%x %y %w %h %g %i") || exit 1
+slop=$(slop -f "%x %y %w %h %g %i")
 [[ $? = 1 ]] && notify-send "Screencast cancelled" && exit 1
-notify-send "Starting screencast"
-touch "$HOME/.screencast-pid"
+
 # shellcheck disable=SC2034
 read -r X Y W H G ID < <(echo "$slop")
 [ ! $((W%2)) -eq 0 ] && W=$((W-1)); [ ! $((H%2)) -eq 0 ] && H=$((H-1))
-( (ffmpeg -y -f x11grab -s "$W"x"$H" -i :0.0+"$X","$Y" -f pulse -i 2 -vf format=yuv420p -profile:v baseline "$FILENAME") & jobs -p > "$SCREENCAST_PID_FILE" )
+
+selected_sources=$(zenity --list \
+    --column=select --column name --checklist --separator="\n" --multiple \
+    $(pactl list short sources | cut -f 2 | sed 's/^/select /'))
+
+[[ $? = 1 ]] && notify-send "Screencast cancelled" && exit 1
+
+
+sources_count=$(wc -l <<<$selected_sources)
+
+print_source_ids() {
+    for source in $selected_sources; do
+        echo -n "-f pulse -thread_queue_size 2048 -i $(pactl list short sources | grep $source | cut -f 1) "
+    done
+}
+
+print_audio_args() {
+    [[ $sources_count = 1 ]] && print_source_ids
+    (( sources_count > 1 )) && echo -n "$(print_source_ids) -filter_complex amerge=inputs=$sources_count"
+}
+
+notify-send "Starting screencast"
+touch "$HOME/.screencast-pid"
+
+ffmpeg_args=" -y -probesize 10M -thread_queue_size 2048 -f x11grab -framerate 30 -s "$W"x"$H" -i :0.0+"$X","$Y" $(print_audio_args) -vf format=yuv420p -profile:v baseline "$FILENAME""
+( (ffmpeg $ffmpeg_args ) & jobs -p > "$SCREENCAST_PID_FILE" )
 
 while [ -f "$SCREENCAST_PID_FILE" ]; do
     sleep 1
