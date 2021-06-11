@@ -1,0 +1,60 @@
+#!/bin/bash
+
+DELIMITER="]"
+
+ARGS=$*
+ORIGINAL_ARGS=$(echo $ARGS | cut -f 1 -d $DELIMITER)
+USER_ARGS=$(echo $ARGS | cut -f 2 -d $DELIMITER || echo -n "")
+
+# WAD selection
+
+WAD=""
+
+wads=$(find . -type f -iname *.wad )
+[ -z wads ] && echo "No WAD found in $(pwd)" && exit 1
+
+OLD_IFS=$IFS
+IFS=" "
+wads_number=$(echo $wads | wc -l)
+IFS="$OLD_IFS"
+
+if (( wads_number > 1 )); then
+  options=""
+  for wad in $wads; do
+    options="$options$wad $wad "
+  done
+
+  WAD=$(/usr/bin/zenity --list --radiolist --text="Select WAD" --column="Select" --column="WAD" $options)
+
+else
+  WAD="$wads"
+fi
+
+[ -z $WAD ] && echo "No WAD selected" && exit 1
+
+# Netplay stuff
+
+IS_NETGAME='false'
+echo $USER_ARGS | grep -- -join &>/dev/null
+[ $? = 0 ] && IS_NETGAME='true'
+
+if [ $IS_NETGAME = 'true' ]; then
+  # Convert unicode hostname to punycode
+  RAW_HOSTNAME=$(tr ' ' '\n' <<< "$USER_ARGS" | sed -n '/-join/{n;p}')
+  PUNYCODE_HOSTNAME=$(CHARSET="UTF-8" idn -a "$RAW_HOSTNAME")
+  USER_ARGS=$(echo "$USER_ARGS" | sed "s/ -join [^ ]*/ -join $PUNYCODE_HOSTNAME/" )
+
+  # Prompt to load save if it's netplay and there are savefiles
+  ls "$HOME/.config/gzdoom" | grep -- .zds &>/dev/null && /usr/bin/zenity --question --text="Load save?" --ok-label="Yes" --cancel-label="No"
+  if [ $? = 0 ]; then
+    SAVE=$(/usr/bin/zenity --file-selection --filename="$HOME/.config/gzdoom/" --file-filter="*.zds")
+    [ -n $SAVE ] && USER_ARGS="$USER_ARGS -loadgame $SAVE"
+  fi
+fi
+
+# Start gzdoom
+
+COMMAND="gzdoom -iwad $WAD $USER_ARGS"
+
+echo $COMMAND # Debugging
+$TERMINAL -e $COMMAND
