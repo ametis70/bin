@@ -1,0 +1,6 @@
+#!/bin/bash
+
+[ $# != 1 ] && echo "Error: provide a single zip" && exit 1
+zipfile="$1"
+zipdir=${1%.zip}
+unzip -d "$zipdir" "$zipfile"
