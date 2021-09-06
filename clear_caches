@@ -1,0 +1,14 @@
+#!/bin/sh
+
+set -uo pipefail
+
+if (( $EUID != 0 )); then
+    echo "Should be run as root"
+    exit 1
+fi
+
+
+journalctl --vacuum-time=7d
+paccache -r -k 1
+systemctl start docker
+docker system prune -a
