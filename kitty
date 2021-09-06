@@ -1,0 +1,4 @@
+#!/bin/sh
+
+[ $# -eq 0 ] && exec /usr/bin/kitty -1
+/usr/bin/kitty "$@"
