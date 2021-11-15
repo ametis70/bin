@@ -1,0 +1,6 @@
+#!/bin/bash
+
+HOSTNAME=$(grep -A1 'desktop' ~/.ssh/config | tail -n1 | xargs | cut -d" " -f2)
+nc -z -w3 "$HOSTNAME" 2424
+
+[ $? == 0 ] && exit 0 || exit 1
