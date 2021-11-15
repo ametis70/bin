@@ -1,0 +1,6 @@
+#!/bin/bash
+
+SCRIPT_PATH=$(dirname "$0")
+MAC=$(gpg --decrypt "$SCRIPT_PATH/data/ethermac.gpg" 2>/dev/null)
+
+ssh -t trovadores sudo etherwake "$MAC"
