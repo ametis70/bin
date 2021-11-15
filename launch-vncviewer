@@ -6,26 +6,25 @@ LOG_FILE="/tmp/ssh-vnc-log"
 
 SCRIPT_DIR=$(dirname "$(readlink "${BASH_SOURCE[@]}")")
 cd "$(dirname "$0")"
-SSH_CONFIG="$SCRIPT_DIR/data/ssh_vnc.config"
 
 # Master/Tunnel
-ssh -F "$SSH_CONFIG" -fMNT -L 5900:localhost:5900 remote &> $LOG_FILE
+ssh -fMNT -L 5900:localhost:5900 remote &> $LOG_FILE
 
 # Change resolution
-ORIGINAL_RES=$(ssh -F "$SSH_CONFIG" remote "/home/ianmethyst/.bin/setup-x0vncserver $RES") &> /dev/null
+ORIGINAL_RES=$(ssh remote "/home/ianmethyst/.bin/setup-x0vncserver $RES") &> /dev/null
 
 # Start VNC server
-ssh -F "$SSH_CONFIG" -tt remote 'DISPLAY=:0 x0vncserver -localhost -SecurityTypes none' &> $LOG_FILE &
+ssh -tt remote 'DISPLAY=:0 x0vncserver -localhost -SecurityTypes none' &> $LOG_FILE &
 
 close () {
   echo 'Closing'
 
   # Restore resolution
   if [ "$ORIGINAL_RES" != "$RES" ]; then
-    ssh -F "$SSH_CONFIG" remote "/home/ianmethyst/.bin/setup-x0vncserver $ORIGINAL_RES" &> $LOG_FILE
+    ssh remote "/home/ianmethyst/.bin/setup-x0vncserver $ORIGINAL_RES" &> $LOG_FILE
   fi
 
-  ssh -F "$SSH_CONFIG" -O exit remote &> $LOG_FILE
+  ssh -O exit remote &> $LOG_FILE
   exit 0
 }
 
@@ -34,7 +33,7 @@ trap close EXIT
 # Start client
 READY="1"
 while :; do
-  ssh -F "$SSH_CONFIG" remote "pgrep x0vncserver" &> /dev/null
+  ssh remote "pgrep x0vncserver" &> /dev/null
   READY="$?"
   [ $READY = 0 ] && break
   sleep 1
