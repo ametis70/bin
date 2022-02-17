@@ -37,6 +37,17 @@ download() {
     else exit 1; fi
 }
 
+compare_checksum() {
+  echo "Checking sha256 hashes"
+  sum=$(sha256sum "$1" | cut -f 1 -d ' ')
+  if [ "$sum" = "$2" ]; then
+    echo "Checksum matches"
+  else
+    echo "Checksum doesn't match. Remove file and download again"
+    exit 1
+  fi
+}
+
 extract() {
     printf "Will extract %s in %s\nExtracted size: %s\nAvailable space: %s\n\n" \
         "$1" "$DOWNLOADS_DIR" "$2" "$(check_available_space)"
@@ -44,16 +55,8 @@ extract() {
     read -rp "Continue? [Y/n]" continue
     continue=${continue:-Y}
     if [[ $continue =~ [yY] ]]; then
-         echo "Extracting..."
-         unzip "$DOWNLOADS_DIR/$1" -d "$DOWNLOADS_DIR"
-         echo "Checking sha256 hashes"
-         sum=$(sha256sum "$3" | cut -f 1 -d ' ')
-         if [ "$sum" = "$4" ]; then
-              echo "Checksum matches"
-         else
-             echo "Checksum doesn't match. Remove file and download again"
-             exit 1
-         fi
+      echo "Extracting..."
+      unzip "$DOWNLOADS_DIR/$1" -d "$DOWNLOADS_DIR"
     else exit 1; fi
 }
 
@@ -108,7 +111,8 @@ else
 fi
 
 [ $should_download = TRUE ] && download "$ZIP_FILENAME" "${SELECTION_DATA[3]}M" "${SELECTION_DATA[2]}"
-[ $should_extract = TRUE ] && extract "$ZIP_FILENAME" "${SELECTION_DATA[4]}M" "$IMG_FILENAME"  "${SELECTION_DATA[5]}"
+[ $should_extract = TRUE ] && extract "$ZIP_FILENAME" "${SELECTION_DATA[4]}M" 
+compare_checksum "$DOWNLOADS_DIR/$IMG_FILENAME"  "${SELECTION_DATA[5]}"
 
 # NOTE: Is there a cleaner way to do this?
 DEVICES=$(list_removable_devices)
