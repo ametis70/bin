@@ -56,7 +56,7 @@ extract() {
     continue=${continue:-Y}
     if [[ $continue =~ [yY] ]]; then
       echo "Extracting..."
-      unzip "$DOWNLOADS_DIR/$1" -d "$DOWNLOADS_DIR"
+      unxz --keep "$DOWNLOADS_DIR/$1"
     else exit 1; fi
 }
 
@@ -88,8 +88,8 @@ IMAGE_SELECTION_CSV=$(echo "$JSON" \
 declare -a SELECTION_DATA
 IFS=',' read -ra SELECTION_DATA <<< "$IMAGE_SELECTION_CSV"
 
-ZIP_FILENAME=$(basename "${SELECTION_DATA[2]}")
-IMG_FILENAME=${ZIP_FILENAME/zip/img}
+ARCHIVE_FILENAME=$(basename "${SELECTION_DATA[2]}")
+IMG_FILENAME=$(basename "$ARCHIVE_FILENAME" .xz)
 
 should_download=FALSE
 should_extract=FALSE
@@ -99,7 +99,7 @@ echo "Checking for files"
 if [ -d "$DOWNLOADS_DIR" ]; then
      if [ -f "$DOWNLOADS_DIR/$IMG_FILENAME" ]; then
           echo "Found extracted image: $IMG_FILENAME"
-     elif [ -f "$DOWNLOADS_DIR/$ZIP_FILENAME" ]; then
+     elif [ -f "$DOWNLOADS_DIR/$ARCHIVE_FILENAME" ]; then
           should_extract=TRUE
      else
          should_download=TRUE; should_extract=TRUE
@@ -110,8 +110,8 @@ else
     should_download=TRUE; should_extract=TRUE
 fi
 
-[ $should_download = TRUE ] && download "$ZIP_FILENAME" "${SELECTION_DATA[3]}M" "${SELECTION_DATA[2]}"
-[ $should_extract = TRUE ] && extract "$ZIP_FILENAME" "${SELECTION_DATA[4]}M" 
+[ $should_download = TRUE ] && download "$ARCHIVE_FILENAME" "${SELECTION_DATA[3]}M" "${SELECTION_DATA[2]}"
+[ $should_extract = TRUE ] && extract "$ARCHIVE_FILENAME" "${SELECTION_DATA[4]}M" 
 compare_checksum "$DOWNLOADS_DIR/$IMG_FILENAME"  "${SELECTION_DATA[5]}"
 
 # NOTE: Is there a cleaner way to do this?
@@ -166,18 +166,26 @@ if [[ $enable_wifi =~ [yY] ]]; then
      [ -f /mnt/raspi-flash/wpa_supplicant.conf ] && \
        sudo rm /mnt/raspi-flash/wpa_supplicant.conf
      sudo bash -c 'cat > /mnt/raspi-flash/wpa_supplicant.conf' <<EOF
+ctrl_interface=DIR=/var/run/wpa_supplicant GROUP=netdev
 country=$country
 update_config=1
-ctrl_interface=/var/run/wpa_supplicant
 
 network={
- scan_ssid=1
  ssid="$ssid"
  psk="$psk"
 }
 
 EOF
 fi
+
+echo "Setup user:"
+read -rp "User name: " username
+read -rsp "User password (hidden): " userpassword
+printf "\n"
+[ -f /mnt/raspi-flash/userconf.txt ] && sudo rm /mnt/raspi-flash/userconf.txt
+sudo bash -c 'cat > /mnt/raspi-flash/userconf.txt' <<EOF
+$username:$(echo $userpassword | openssl passwd -6 -stdin)
+EOF
 
 sudo umount "$DEVICE_SELECTION"
 
