@@ -1,0 +1,6 @@
+#!/bin/sh
+looking-glass-client &
+scream -m /dev/shm/scream-ivshmem &
+
+wait -n
+pkill -P $$
