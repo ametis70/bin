@@ -1,0 +1,40 @@
+#!/bin/bash
+
+STATE_FILE="/tmp/pulse-rtp-modules"
+NULL_SINK_NAME="RetroPie"
+SERVER_IP="192.168.1.32"
+
+enable() {
+	NULL_SINK_MODULE=$(pactl load-module module-null-sink sink_name=rtp sink_properties="device.description=$NULL_SINK_NAME")
+	RTP_MODULE=$(pactl load-module module-rtp-send source=rtp.monitor destination_ip="$SERVER_IP")
+	DEFAULT_SINK=$(pactl get-default-sink)
+
+	echo "$NULL_SINK_MODULE","$RTP_MODULE","$DEFAULT_SINK" >"$STATE_FILE"
+	pactl set-default-sink rtp
+}
+
+check() {
+	test -f "$STATE_FILE"
+}
+
+get_state_value() {
+	cut -f "$1" -d "," <<<"$2"
+}
+
+disable() {
+	MODULES=$(cat "$STATE_FILE")
+	pactl unload-module "$(get_state_value 2 "$MODULES")"
+	pactl unload-module "$(get_state_value 1 "$MODULES")"
+	pactl set-default-sink "$(get_state_value 3 "$MODULES")"
+	rm "$STATE_FILE"
+}
+
+toggle() {
+	if check; then disable; else enable; fi
+}
+
+main() {
+	toggle
+}
+
+main
