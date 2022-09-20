@@ -1,22 +1,22 @@
 #!/bin/bash
 
 export DISPLAY=":0"
-OUTPUT="DisplayPort-2"
+OUTPUT="HDMI-A-0"
 
 ORIGINAL_RES=$(xdpyinfo | grep dimensions | sed -r 's/^[^0-9]*([0-9]+x[0-9]+).*$/\1/')
 NEW_RES="${1:-$ORIGINAL_RES}"
 WM=$(wmctrl -m | head -n 1 | cut -d " " -f2)
 
-echo $ORIGINAL_RES
+echo "$ORIGINAL_RES"
 
 set_resolution() {
-if [ "$ORIGINAL_RES" != "$NEW_RES" ]; then
-    xrandr --output "$OUTPUT" --mode "$1"
+	if [ "$ORIGINAL_RES" != "$NEW_RES" ]; then
+		xrandr --output "$OUTPUT" --mode "$1"
 
-    if [ "$WM" = "i3" ]; then
-        i3-msg restart
-    fi
-fi
+		if [ "$WM" = "i3" ]; then
+			i3-msg restart
+		fi
+	fi
 }
 
-set_resolution $NEW_RES
+set_resolution "$NEW_RES"
