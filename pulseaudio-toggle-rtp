@@ -3,12 +3,17 @@
 STATE_FILE="/tmp/pulse-rtp-modules"
 NULL_SINK_NAME="RetroPie"
 SERVER_IP="192.168.1.32"
+SSH_SERVER_HOST="retropie"
 
 enable() {
+	# Enable server component
+	ssh "$SSH_SERVER_HOST" "pactl load-module module-rtp-recv latency_msec=200 sap_address=0.0.0.0"
+	# Enable client component
 	NULL_SINK_MODULE=$(pactl load-module module-null-sink sink_name=rtp sink_properties="device.description=$NULL_SINK_NAME")
 	RTP_MODULE=$(pactl load-module module-rtp-send source=rtp.monitor destination_ip="$SERVER_IP")
 	DEFAULT_SINK=$(pactl get-default-sink)
 
+	# Save state to file
 	echo "$NULL_SINK_MODULE","$RTP_MODULE","$DEFAULT_SINK" >"$STATE_FILE"
 	pactl set-default-sink rtp
 }
@@ -22,10 +27,14 @@ get_state_value() {
 }
 
 disable() {
+	# Read state from file and unlolad correct modules
 	MODULES=$(cat "$STATE_FILE")
 	pactl unload-module "$(get_state_value 2 "$MODULES")"
 	pactl unload-module "$(get_state_value 1 "$MODULES")"
 	pactl set-default-sink "$(get_state_value 3 "$MODULES")"
+
+	# This will remove all rtp server modules, as leftovers can cause crackling
+	ssh -n "$SSH_SERVER_HOST" pactl unload-module "module-rtp-recv"
 	rm "$STATE_FILE"
 }
 
