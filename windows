@@ -1,0 +1,114 @@
+#!/bin/bash
+
+SCRIPT_PATH=$(dirname "$0")
+DEVICES_PATH="$SCRIPT_PATH/data/libvirt-devices"
+VM_NAME="windows10-gpu"
+
+VM_DISPLAY="0x0f"
+HOST_DISPLAY="0x11"
+
+virsh() {
+  command virsh -c qemu:///system "$@"
+}
+
+get_display_hex() {
+  ddcutil getvcp 60 | cut -d '=' -f 2 | sed 's/.$//'
+}
+
+switch_display() {
+  if [ "$(get_display_hex)" = "$1" ]; then
+    echo "Display already on target. Won't switch"
+    return;
+  fi
+  ddcutil setvcp 60 "$1"
+}
+
+attach_mouse_kbd() {
+  for file in "$DEVICES_PATH"/*; do
+    virsh attach-device $VM_NAME "$file"
+  done
+}
+
+detach_mouse_kbd() {
+  for file in "$DEVICES_PATH"/*; do
+    virsh detach-device $VM_NAME "$file"
+  done
+}
+
+switch_to_vm() {
+  # switch to DP-1
+  switch_display "$VM_DISPLAY"
+  attach_mouse_kbd
+}
+
+switch_to_host() {
+  # switch to HDMI-1
+  switch_display "$HOST_DISPLAY"
+  detach_mouse_kbd
+}
+
+get_display() {
+  HEX=$(get_display_hex)
+
+  case "$HEX" in
+    "$HOST_DISPLAY") echo "host";;
+    "$VM_DISPLAY") echo  "vm";;
+    *) echo "unknown";;
+  esac
+}
+
+check_vm_running() {
+  virsh dominfo windows10-gpu | grep running &>/dev/null && echo true || echo false
+}
+
+toggle() {
+  if [ "$(check_vm_running)" = "false" ]; then
+    switch_to_host
+    return;
+  fi
+
+  DISPLAY=$(get_display)
+  case "$DISPLAY" in
+    "host") switch_to_vm;;
+    "vm") switch_to_host;;
+    *) echo "Unknown display, are the HDMI and DP connected to the right ports?"
+  esac
+}
+
+start_vm() {
+  virsh start "$VM_NAME"
+}
+
+stop_vm() {
+  virsh shutdown "$VM_NAME"
+}
+
+help() {
+  cat <<EOF
+    Usage: $(basename "$0") <command>
+
+    Available commands: start | stop | toggle | switch | running | display
+EOF
+}
+
+switch() {
+  case "$1" in
+    "host") switch_to_host;;
+    "vm") switch_to_vm;;
+    *) echo "Usage: $(basename "$0") switch <host|vm>";;
+  esac
+}
+
+main() {
+  case "$1" in
+    "start") start_vm;;
+    "stop") stop_vm;;
+    "toggle") toggle;;
+    "switch") switch "$2";;
+    "running") check_vm_running;;
+    "display") get_display;;
+    *) help;;
+   esac
+}
+
+main "$@"
