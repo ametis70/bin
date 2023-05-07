@@ -1,0 +1,17 @@
+#!/bin/bash
+
+set -euo pipefail
+
+TMP_DIR="$(mktemp -d)"
+
+# Config
+pass ssh-config | tail -n+2 > "$TMP_DIR/config"
+[ -f ~/.ssh/config ] && rm ~/.ssh/config
+mv "$TMP_DIR/config" ~/.ssh/config
+
+# Authorized keys
+pass ssh-keys | tail -n+2 | sed -n '/\# Others/q;p' | head -n-1 > "$TMP_DIR/authorized_keys"
+[ -f ~/.ssh/authorized_keys ] && rm ~/.ssh/authorized_keys
+mv "$TMP_DIR/authorized_keys" ~/.ssh/authorized_keys
+
+rmdir "$TMP_DIR"
